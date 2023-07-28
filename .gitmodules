@@ -2,3 +2,7 @@
 	path = lib/greenfield-contracts
 	url = https://github.com/bnb-chain/greenfield-contracts
 	branch = v0.0.8
+[submodule "lib/greenfield-contracts-sdk"]
+	path = lib/greenfield-contracts-sdk
+	url = https://github.com/bnb-chain/greenfield-contracts-sdk
+	branch = v0.0.6
