@@ -35,7 +35,7 @@ contract MarketplaceTest is Test {
         owner = vm.addr(privateKey);
         console.log("owner: %s", owner);
 
-        proxyMarketplace = 0x0D5ea5dbBE58Ea038854e19D3C50e7C0F8ea90cf; // get this from deploy script's log
+        proxyMarketplace = 0x90DEFDB65A73717A36f732C2Ae218f7DcaBF17a0; // get this from deploy script's log
         crossChain = IMarketplace(proxyMarketplace).CROSS_CHAIN();
         groupHub = IMarketplace(proxyMarketplace).GROUP_HUB();
         groupToken = IMarketplace(proxyMarketplace).GROUP_TOKEN();
@@ -121,8 +121,8 @@ contract MarketplaceTest is Test {
     }
 
     function testVerify() public {
-        address _impl = 0x1bf400A4b8FdCB25B9fe435eA160E75CD5510A50;
-        address _owner = 0xe1312e3c4c0be0c3a7Be58cB40F7f78BD20B4cB5;
+        address _impl = 0xE18Ec43451B0723Ede72A49d5D74fA9933Ddc46f;
+        address _owner = 0x079F289Bb65c4E336c57E394E4961031FbC91313;
         string memory _str = "";
         bytes memory _data = abi.encode(_impl, _owner, _str);
         emit log_bytes(_data);

@@ -23,7 +23,8 @@ cp .env.example .env
 2. Deploy with foundry.
 
 ```bash
-forge script ./script/1-deploy.s.sol --rpc-url ${RPC_LOCAL} --legacy --broadcast --private-key ${OP_PRIVATE_KEY}
+source .env
+forge script ./script/1-deploy.s.sol --rpc-url ${RPC_TESTNET} --legacy --broadcast --private-key ${OP_PRIVATE_KEY}
 ```
 
 ## Test
@@ -31,7 +32,7 @@ forge script ./script/1-deploy.s.sol --rpc-url ${RPC_LOCAL} --legacy --broadcast
 Test with foundry after deploying:
 
 ```bash
-forge test --rpc-url ${RPC_LOCAL}
+forge test --rpc-url ${RPC_TESTNET}
 ```
 
 ## License
