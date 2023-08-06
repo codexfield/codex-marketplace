@@ -35,6 +35,8 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     mapping(uint256 => uint256) public salesRevenue;
     // group ID => listed date
     mapping(uint256 => uint256) public listedDate;
+    // group ID => scores 0~127: average score 128~255: score counts
+    mapping(uint256 => uint256) public scores;
 
     // address => unclaimed amount
     mapping(address => uint256) private _unclaimedFunds;
@@ -52,10 +54,17 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     // group ID corresponding to the sales revenue ranking list, ordered by sales revenue(desc)
     uint256[] private _salesRevenueRankingId;
 
+    // score ranking list, ordered by average score(desc)
+    uint256[] private _scoreRanking;
+    // group ID corresponding to the score ranking list, ordered by average score(desc)
+    uint256[] private _scoreRankingId;
+
     // user address => user listed group IDs, ordered by listed time
     mapping(address => EnumerableSetUpgradeable.UintSet) private _userListedGroups;
     // user address => user purchased group IDs, ordered by purchased time
     mapping(address => EnumerableSetUpgradeable.UintSet) private _userPurchasedGroups;
+    // user address => user rated group IDs, ordered by rated time
+    mapping(address => EnumerableSetUpgradeable.UintSet) private _userRatedGroups;
 
     address public fundWallet;
 
@@ -67,6 +76,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     event Delist(address indexed owner, uint256 indexed groupId);
     event Buy(address indexed buyer, uint256 indexed groupId);
     event BuyFailed(address indexed buyer, uint256 indexed groupId);
+    event Rate(address indexed buyer, uint256 indexed groupId, uint256 score);
 
     modifier onlyGroupOwner(uint256 groupId) {
         require(msg.sender == IERC721NonTransferable(GROUP_TOKEN).ownerOf(groupId), "MarketPlace: only group owner");
@@ -95,6 +105,8 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         _salesVolumeRankingId = new uint256[](10);
         _salesRevenueRanking = new uint256[](10);
         _salesRevenueRankingId = new uint256[](10);
+        _scoreRanking = new uint256[](10);
+        _scoreRankingId = new uint256[](10);
     }
 
     /*----------------- external functions -----------------*/
@@ -142,6 +154,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         delete listedDate[groupId];
         delete salesVolume[groupId];
         delete salesRevenue[groupId];
+        delete scores[groupId];
         _listedGroups.remove(groupId);
         _userListedGroups[msg.sender].remove(groupId);
 
@@ -165,6 +178,18 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
                 }
                 _salesRevenueRankingId[_salesRevenueRankingId.length - 1] = 0;
                 _salesRevenueRanking[_salesRevenueRankingId.length - 1] = 0;
+                break;
+            }
+        }
+
+        for (uint256 i; i < _scoreRankingId.length; ++i) {
+            if (_scoreRankingId[i] == groupId) {
+                for (uint256 j = i; j < _scoreRankingId.length - 1; ++j) {
+                    _scoreRankingId[j] = _scoreRankingId[j + 1];
+                    _scoreRanking[j] = _scoreRanking[j + 1];
+                }
+                _scoreRankingId[_scoreRankingId.length - 1] = 0;
+                _scoreRanking[_scoreRankingId.length - 1] = 0;
                 break;
             }
         }
@@ -211,6 +236,24 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         require(success, "MarketPlace: claim failed");
     }
 
+    function rate(uint256 groupId, uint256 score) external {
+        require(_userPurchasedGroups[msg.sender].contains(groupId), "MarketPlace: not purchased");
+        require(!_userRatedGroups[msg.sender].contains(groupId), "MarketPlace: already rated");
+        require(score <= 5e18, "MarketPlace: invalid score");
+
+        uint256 _score = scores[groupId] & 0xffffffffffffffffffffffffffffffff;
+        uint256 _count = scores[groupId] >> 128;
+        uint256 totalScore = _score*_count + score;
+        _count += 1;
+        _score = totalScore / _count;
+        scores[groupId] = _count << 128 + _score;
+
+        _userRatedGroups[msg.sender].add(groupId);
+        _updateScores(groupId);
+
+        emit Rate(msg.sender, groupId, score);
+    }
+
     /*----------------- view functions -----------------*/
     function getMinRelayFee() external returns (uint256 amount) {
         amount = _getTotalFee();
@@ -241,6 +284,20 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     {
         _ids = _salesRevenueRankingId;
         _revenues = _salesRevenueRanking;
+
+        _dates = new uint256[](_ids.length);
+        for (uint256 i; i < _ids.length; ++i) {
+            _dates[i] = listedDate[_ids[i]];
+        }
+    }
+
+    function getScoreRanking()
+        external
+        view
+        returns (uint256[] memory _ids, uint256[] memory _scores, uint256[] memory _dates)
+    {
+        _ids = _scoreRankingId;
+        _scores = _scoreRanking;
 
         _dates = new uint256[](_ids.length);
         for (uint256 i; i < _ids.length; ++i) {
@@ -471,6 +528,29 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
                 }
                 _salesRevenueRanking[i] = _revenue;
                 _salesRevenueRankingId[i] = groupId;
+                break;
+            }
+        }
+    }
+
+    function _updateScores(uint256 groupId) internal {
+        uint256 _score = scores[groupId] & 0xffffffffffffffffffffffffffffffff;
+
+        for (uint256 i; i < _scoreRanking.length; ++i) {
+            if (_score > _scoreRanking[i]) {
+                uint256 endIdx = _scoreRanking.length - 1;
+                for (uint256 j = i; j < _scoreRanking.length; ++j) {
+                    if (_scoreRankingId[j] == groupId) {
+                        endIdx = j;
+                        break;
+                    }
+                }
+                for (uint256 k = endIdx; k > i; --k) {
+                    _scoreRanking[k] = _scoreRanking[k - 1];
+                    _scoreRankingId[k] = _scoreRankingId[k - 1];
+                }
+                _scoreRanking[i] = _score;
+                _scoreRankingId[i] = groupId;
                 break;
             }
         }

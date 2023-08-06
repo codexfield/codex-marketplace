@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 interface IMarketplace {
     event Buy(address indexed buyer, uint256 indexed groupId);
     event BuyFailed(address indexed buyer, uint256 indexed groupId);
+    event Rate(address indexed buyer, uint256 indexed groupId, uint256 score);
     event CreateGroupFailed(uint32 status, bytes groupName);
     event CreateGroupSuccess(bytes groupName, uint256 indexed tokenId);
     event DeleteGroupFailed(uint32 status, uint256 indexed tokenId);
@@ -40,6 +41,7 @@ interface IMarketplace {
     function addOperator(address newOperator) external;
     function buy(uint256 groupId, address refundAddress) external payable;
     function buyBatch(uint256[] memory groupIds, address refundAddress) external payable;
+    function rate(uint256 groupId, uint256 score) external;
     function callbackGasLimit() external view returns (uint256);
     function claim() external;
     function crossChain() external view returns (address);
@@ -75,6 +77,10 @@ interface IMarketplace {
         external
         view
         returns (uint256[] memory _ids, uint256[] memory _volumes, uint256[] memory _dates);
+    function getScoreRanking()
+        external
+        view
+        returns (uint256[] memory _ids, uint256[] memory _scores, uint256[] memory _dates);
     function getUnclaimedAmount() external view returns (uint256 amount);
     function getUserListed(
         address user,
@@ -106,6 +112,7 @@ interface IMarketplace {
     function list(uint256 groupId, uint256 price) external;
     function listedDate(uint256) external view returns (uint256);
     function prices(uint256) external view returns (uint256);
+    function scores(uint256) external view returns (uint256);
     function removeOperator(address operator) external;
     function renounceRole(bytes32 role, address account) external;
     function retryPackage(uint8) external;

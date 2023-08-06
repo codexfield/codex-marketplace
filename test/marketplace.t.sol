@@ -35,7 +35,7 @@ contract MarketplaceTest is Test {
         owner = vm.addr(privateKey);
         console.log("owner: %s", owner);
 
-        proxyMarketplace = 0x90DEFDB65A73717A36f732C2Ae218f7DcaBF17a0; // get this from deploy script's log
+        proxyMarketplace = 0x1E89b3561C6ECc984d720C0806a56472bB792c2d; // get this from deploy script's log
         crossChain = IMarketplace(proxyMarketplace).CROSS_CHAIN();
         groupHub = IMarketplace(proxyMarketplace).GROUP_HUB();
         groupToken = IMarketplace(proxyMarketplace).GROUP_TOKEN();
@@ -118,6 +118,32 @@ contract MarketplaceTest is Test {
         vm.expectEmit(true, true, true, true, groupHub);
         emit UpdateSubmitted(_owner, proxyMarketplace, tokenId, 0, members);
         IMarketplace(proxyMarketplace).buy{value: 1e18 + relayFee}(tokenId, address(this));
+    }
+
+    function testRate(uint256 tokenId) public {
+        vm.assume(!IERC721NonTransferable(groupToken).exists(tokenId));
+
+        address _owner = address(0x1234);
+        uint256 relayFee = _getTotalFee();
+
+        vm.prank(groupHub);
+        IERC721(groupToken).mint(_owner, tokenId);
+        vm.startPrank(_owner);
+        IGroupHub(groupHub).grant(proxyMarketplace, 4, 0);
+        IMarketplace(proxyMarketplace).list(tokenId, 1e18);
+        vm.stopPrank();
+
+        // failed with not purchased
+        vm.expectRevert("MarketPlace: not purchased");
+        IMarketplace(proxyMarketplace).rate(tokenId, 3e18);
+
+        // success case
+        address[] memory members = new address[](1);
+        members[0] = address(this);
+        vm.expectEmit(true, true, true, true, groupHub);
+        emit UpdateSubmitted(_owner, proxyMarketplace, tokenId, 0, members);
+        IMarketplace(proxyMarketplace).buy{value: 1e18 + relayFee}(tokenId, address(this));
+        IMarketplace(proxyMarketplace).rate(tokenId, 3e18);
     }
 
     function testVerify() public {
