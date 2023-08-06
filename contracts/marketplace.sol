@@ -424,6 +424,32 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         }
     }
 
+    function getUserRated(
+        address user,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength) {
+        _totalLength = _userRatedGroups[user].length();
+        if (offset >= _totalLength) {
+            return (_ids, _dates, _totalLength);
+        }
+
+        uint256 count = _totalLength - offset;
+        if (count > limit) {
+            count = limit;
+        }
+        _ids = new uint256[](count);
+        _dates = new uint256[](count);
+        for (uint256 i; i < count; ++i) {
+            _ids[i] = _userRatedGroups[user].at(offset + i);
+            _dates[i] = listedDate[_ids[i]];
+        }
+    }
+
+    function hasUserRated(address user, uint256 groupId) external view returns(bool) {
+        return _userRatedGroups[user].contains(groupId);
+    }
+
     /*----------------- admin functions -----------------*/
     function addOperator(address newOperator) external {
         grantRole(OPERATOR_ROLE, newOperator);

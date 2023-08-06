@@ -92,6 +92,12 @@ interface IMarketplace {
         uint256 offset,
         uint256 limit
     ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength);
+    function getUserRated(
+        address user,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength);
+    function hasUserRated(address user, uint256 groupId) external view returns(bool);
     function grantRole(bytes32 role, address account) external;
     function greenfieldCall(
         uint32 status,
