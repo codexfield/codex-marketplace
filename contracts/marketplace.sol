@@ -246,7 +246,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         uint256 totalScore = _score*_count + score;
         _count += 1;
         _score = totalScore / _count;
-        scores[groupId] = _count << 128 + _score;
+        scores[groupId] = (_count << 128) + _score;
 
         _userRatedGroups[msg.sender].add(groupId);
         _updateScores(groupId);
