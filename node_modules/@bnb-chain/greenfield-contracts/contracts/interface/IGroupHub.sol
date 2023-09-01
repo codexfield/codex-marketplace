@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.0;
 
-import "./ICmnHub.sol";
 import "../middle-layer/resource-mirror/storage/GroupStorage.sol";
 
 interface IGroupHub {

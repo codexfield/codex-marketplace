@@ -2,14 +2,9 @@
 pragma solidity >=0.8.0;
 
 import "forge-std/Test.sol";
-import "@bnb-chain/greenfield-contracts-sdk/interface/IGroupHub.sol";
 
-import "../contracts/deployer.sol";
+import "../contracts/Deployer.sol";
 import "../contracts/interface/IMarketplace.sol";
-
-interface IERC721 {
-    function mint(address to, uint256 tokenId) external;
-}
 
 contract MarketplaceTest is Test {
     uint256 public constant callbackGasLimit = 1_000_000; // TODO: TBD
@@ -35,21 +30,21 @@ contract MarketplaceTest is Test {
         owner = vm.addr(privateKey);
         console.log("owner: %s", owner);
 
-        proxyMarketplace = 0x1E89b3561C6ECc984d720C0806a56472bB792c2d; // get this from deploy script's log
-        crossChain = IMarketplace(proxyMarketplace).CROSS_CHAIN();
-        groupHub = IMarketplace(proxyMarketplace).GROUP_HUB();
-        groupToken = IMarketplace(proxyMarketplace).GROUP_TOKEN();
+        proxyMarketplace = 0x8c7EB076946aa3f015d5825D72046354c84f777f; // get this from deploy script's log
+        crossChain = IMarketplace(proxyMarketplace)._CROSS_CHAIN();
+        groupHub = IMarketplace(proxyMarketplace)._GROUP_HUB();
+        groupToken = IMarketplace(proxyMarketplace)._GROUP_TOKEN();
     }
 
     function testList(uint256 tokenId) public {
         vm.assume(!IERC721NonTransferable(groupToken).exists(tokenId));
 
-        // failed with unexisted group
+        // failed with non-existed group
         vm.expectRevert("ERC721: invalid token ID");
         IMarketplace(proxyMarketplace).list(tokenId, 1e18);
 
         vm.startPrank(groupHub);
-        IERC721(groupToken).mint(address(this), tokenId);
+        IERC721NonTransferable(groupToken).mint(address(this), tokenId);
         vm.stopPrank();
 
         // failed with not group owner
@@ -59,7 +54,7 @@ contract MarketplaceTest is Test {
         vm.stopPrank();
 
         // success case
-        IGroupHub(groupHub).grant(proxyMarketplace, 4, 0);
+        ICmnHub(groupHub).grant(proxyMarketplace, 4, 0);
         vm.expectEmit(true, true, false, true, proxyMarketplace);
         emit List(address(this), tokenId, 1e18);
         IMarketplace(proxyMarketplace).list(tokenId, 1e18);
@@ -69,13 +64,13 @@ contract MarketplaceTest is Test {
         vm.assume(!IERC721NonTransferable(groupToken).exists(tokenId));
 
         vm.prank(groupHub);
-        IERC721(groupToken).mint(address(this), tokenId);
+        IERC721NonTransferable(groupToken).mint(address(this), tokenId);
 
         // failed with not listed group
         vm.expectRevert("MarketPlace: not listed");
         IMarketplace(proxyMarketplace).delist(tokenId);
 
-        IGroupHub(groupHub).grant(proxyMarketplace, 4, 0);
+        ICmnHub(groupHub).grant(proxyMarketplace, 4, 0);
         IMarketplace(proxyMarketplace).list(tokenId, 1e18);
 
         // failed with not group owner
@@ -102,9 +97,9 @@ contract MarketplaceTest is Test {
         IMarketplace(proxyMarketplace).buy(tokenId, address(this));
 
         vm.prank(groupHub);
-        IERC721(groupToken).mint(_owner, tokenId);
+        IERC721NonTransferable(groupToken).mint(_owner, tokenId);
         vm.startPrank(_owner);
-        IGroupHub(groupHub).grant(proxyMarketplace, 4, 0);
+        ICmnHub(groupHub).grant(proxyMarketplace, 4, 0);
         IMarketplace(proxyMarketplace).list(tokenId, 1e18);
         vm.stopPrank();
 
@@ -118,40 +113,6 @@ contract MarketplaceTest is Test {
         vm.expectEmit(true, true, true, true, groupHub);
         emit UpdateSubmitted(_owner, proxyMarketplace, tokenId, 0, members);
         IMarketplace(proxyMarketplace).buy{value: 1e18 + relayFee}(tokenId, address(this));
-    }
-
-    function testRate(uint256 tokenId) public {
-        vm.assume(!IERC721NonTransferable(groupToken).exists(tokenId));
-
-        address _owner = address(0x1234);
-        uint256 relayFee = _getTotalFee();
-
-        vm.prank(groupHub);
-        IERC721(groupToken).mint(_owner, tokenId);
-        vm.startPrank(_owner);
-        IGroupHub(groupHub).grant(proxyMarketplace, 4, 0);
-        IMarketplace(proxyMarketplace).list(tokenId, 1e18);
-        vm.stopPrank();
-
-        // failed with not purchased
-        vm.expectRevert("MarketPlace: not purchased");
-        IMarketplace(proxyMarketplace).rate(tokenId, 3e18);
-
-        // success case
-        address[] memory members = new address[](1);
-        members[0] = address(this);
-        vm.expectEmit(true, true, true, true, groupHub);
-        emit UpdateSubmitted(_owner, proxyMarketplace, tokenId, 0, members);
-        IMarketplace(proxyMarketplace).buy{value: 1e18 + relayFee}(tokenId, address(this));
-        IMarketplace(proxyMarketplace).rate(tokenId, 3e18);
-    }
-
-    function testVerify() public {
-        address _impl = 0xE18Ec43451B0723Ede72A49d5D74fA9933Ddc46f;
-        address _owner = 0x079F289Bb65c4E336c57E394E4961031FbC91313;
-        string memory _str = "";
-        bytes memory _data = abi.encode(_impl, _owner, _str);
-        emit log_bytes(_data);
     }
 
     function _getTotalFee() internal returns (uint256) {

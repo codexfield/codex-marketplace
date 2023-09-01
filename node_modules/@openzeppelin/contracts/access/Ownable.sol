@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.7.0) (access/Ownable.sol)
+// OpenZeppelin Contracts (last updated v4.9.0) (access/Ownable.sol)
 
 pragma solidity ^0.8.0;
 
@@ -53,10 +53,10 @@ abstract contract Ownable is Context {
 
     /**
      * @dev Leaves the contract without owner. It will not be possible to call
-     * `onlyOwner` functions anymore. Can only be called by the current owner.
+     * `onlyOwner` functions. Can only be called by the current owner.
      *
      * NOTE: Renouncing ownership will leave the contract without an owner,
-     * thereby removing any functionality that is only available to the owner.
+     * thereby disabling any functionality that is only available to the owner.
      */
     function renounceOwnership() public virtual onlyOwner {
         _transferOwnership(address(0));

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.7.0) (token/ERC20/extensions/ERC20Snapshot.sol)
+// OpenZeppelin Contracts (last updated v4.9.0) (token/ERC20/extensions/ERC20Snapshot.sol)
 
 pragma solidity ^0.8.0;
 
@@ -120,11 +120,7 @@ abstract contract ERC20Snapshot is ERC20 {
 
     // Update balance and/or total supply snapshots before the values are modified. This is implemented
     // in the _beforeTokenTransfer hook, which is executed for _mint, _burn, and _transfer operations.
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual override {
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override {
         super._beforeTokenTransfer(from, to, amount);
 
         if (from == address(0)) {

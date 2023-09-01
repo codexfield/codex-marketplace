@@ -2,10 +2,11 @@
 
 pragma solidity ^0.8.0;
 
-import "./ICmnHub.sol";
 import "../middle-layer/resource-mirror/storage/ObjectStorage.sol";
 
 interface IObjectHub {
+    function deleteObject(uint256 tokenId) external payable returns (bool);
+
     function deleteObject(
         uint256 tokenId,
         uint256 callbackGasLimit,

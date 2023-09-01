@@ -12,9 +12,6 @@ contract PackageQueue {
     // app retry package hash => retry package
     mapping(bytes32 => RetryPackage) public packageMap;
 
-    // PlaceHolder reserve for future usage
-    uint256[50] public PkgQueueSlots;
-
     /*
      * This enum provides different strategies for handling a failed ACK package.
      */
@@ -35,4 +32,7 @@ contract PackageQueue {
 
     event AppHandleAckPkgFailed(address indexed appAddress, bytes32 pkgHash, bytes failReason);
     event AppHandleFailAckPkgFailed(address indexed appAddress, bytes32 pkgHash, bytes failReason);
+
+    // PlaceHolder reserve for future usage
+    uint256[50] private __reservedPkgQueueSlots;
 }

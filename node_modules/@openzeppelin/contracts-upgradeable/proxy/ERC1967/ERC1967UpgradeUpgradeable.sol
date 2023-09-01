@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.8.3) (proxy/ERC1967/ERC1967Upgrade.sol)
+// OpenZeppelin Contracts (last updated v4.9.0) (proxy/ERC1967/ERC1967Upgrade.sol)
 
 pragma solidity ^0.8.2;
 
@@ -15,8 +15,6 @@ import "../utils/Initializable.sol";
  * https://eips.ethereum.org/EIPS/eip-1967[EIP1967] slots.
  *
  * _Available since v4.1._
- *
- * @custom:oz-upgrades-unsafe-allow delegatecall
  */
 abstract contract ERC1967UpgradeUpgradeable is Initializable, IERC1967Upgradeable {
     function __ERC1967Upgrade_init() internal onlyInitializing {
@@ -64,14 +62,10 @@ abstract contract ERC1967UpgradeUpgradeable is Initializable, IERC1967Upgradeabl
      *
      * Emits an {Upgraded} event.
      */
-    function _upgradeToAndCall(
-        address newImplementation,
-        bytes memory data,
-        bool forceCall
-    ) internal {
+    function _upgradeToAndCall(address newImplementation, bytes memory data, bool forceCall) internal {
         _upgradeTo(newImplementation);
         if (data.length > 0 || forceCall) {
-            _functionDelegateCall(newImplementation, data);
+            AddressUpgradeable.functionDelegateCall(newImplementation, data);
         }
     }
 
@@ -80,11 +74,7 @@ abstract contract ERC1967UpgradeUpgradeable is Initializable, IERC1967Upgradeabl
      *
      * Emits an {Upgraded} event.
      */
-    function _upgradeToAndCallUUPS(
-        address newImplementation,
-        bytes memory data,
-        bool forceCall
-    ) internal {
+    function _upgradeToAndCallUUPS(address newImplementation, bytes memory data, bool forceCall) internal {
         // Upgrades from old implementations will perform a rollback test. This test requires the new
         // implementation to upgrade back to the old, non-ERC1822 compliant, implementation. Removing
         // this special case will break upgrade paths from old UUPS implementation to new ones.
@@ -163,30 +153,12 @@ abstract contract ERC1967UpgradeUpgradeable is Initializable, IERC1967Upgradeabl
      *
      * Emits a {BeaconUpgraded} event.
      */
-    function _upgradeBeaconToAndCall(
-        address newBeacon,
-        bytes memory data,
-        bool forceCall
-    ) internal {
+    function _upgradeBeaconToAndCall(address newBeacon, bytes memory data, bool forceCall) internal {
         _setBeacon(newBeacon);
         emit BeaconUpgraded(newBeacon);
         if (data.length > 0 || forceCall) {
-            _functionDelegateCall(IBeaconUpgradeable(newBeacon).implementation(), data);
+            AddressUpgradeable.functionDelegateCall(IBeaconUpgradeable(newBeacon).implementation(), data);
         }
-    }
-
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],
-     * but performing a delegate call.
-     *
-     * _Available since v3.4._
-     */
-    function _functionDelegateCall(address target, bytes memory data) private returns (bytes memory) {
-        require(AddressUpgradeable.isContract(target), "Address: delegate call to non-contract");
-
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory returndata) = target.delegatecall(data);
-        return AddressUpgradeable.verifyCallResult(success, returndata, "Address: low-level delegate call failed");
     }
 
     /**

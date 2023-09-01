@@ -3,8 +3,8 @@ pragma solidity >=0.8.0;
 
 import "forge-std/Script.sol";
 
-import "../contracts/deployer.sol";
-import "../contracts/marketplace.sol";
+import "../contracts/Deployer.sol";
+import "../contracts/Marketplace.sol";
 
 contract DeployScript is Script {
     uint256 public constant callbackGasLimit = 1_000_000; // TODO: TBD

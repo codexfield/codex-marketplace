@@ -4,12 +4,11 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
-import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 
 import "../interface/IERC1155NonTransferable.sol";
 
-contract ERC1155NonTransferable is Context, ERC165, IERC1155NonTransferable {
+contract ERC1155NonTransferable is Context, IERC1155NonTransferable {
     using Address for address;
 
     address private _controlHub;
@@ -73,8 +72,8 @@ contract ERC1155NonTransferable is Context, ERC165, IERC1155NonTransferable {
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
-        return interfaceId == type(IERC1155NonTransferable).interfaceId || super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+        return interfaceId == type(IERC1155NonTransferable).interfaceId;
     }
 
     function baseURI() public view returns (string memory) {

@@ -5,12 +5,11 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 import "../interface/IERC721NonTransferable.sol";
 
-contract ERC721NonTransferable is Context, ERC165, IERC721NonTransferable {
+contract ERC721NonTransferable is Context, IERC721NonTransferable, IERC721Metadata {
     using Address for address;
     using Strings for uint256;
 
@@ -122,8 +121,9 @@ contract ERC721NonTransferable is Context, ERC165, IERC721NonTransferable {
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
-        return interfaceId == type(IERC721NonTransferable).interfaceId || super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+        return
+            interfaceId == type(IERC721NonTransferable).interfaceId || interfaceId == type(IERC721Metadata).interfaceId;
     }
 
     /**

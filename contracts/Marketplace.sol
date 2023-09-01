@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import "@bnb-chain/greenfield-contracts/contracts/lib/RLPDecode.sol";
-import "@bnb-chain/greenfield-contracts/contracts/lib/RLPEncode.sol";
+import "@bnb-chain/greenfield-contracts/contracts/interface/IERC721NonTransferable.sol";
+import "@bnb-chain/greenfield-contracts/contracts/interface/IERC1155NonTransferable.sol";
+import "@bnb-chain/greenfield-contracts/contracts/interface/IGnfdAccessControl.sol";
 import "@bnb-chain/greenfield-contracts-sdk/GroupApp.sol";
-import "@bnb-chain/greenfield-contracts-sdk/interface/IERC721NonTransferable.sol";
-import "@bnb-chain/greenfield-contracts-sdk/interface/IERC1155NonTransferable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableMapUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/DoubleEndedQueueUpgradeable.sol";
 
-contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
-    using RLPDecode for *;
-    using RLPEncode for *;
+contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.UintSet;
     using DoubleEndedQueueUpgradeable for DoubleEndedQueueUpgradeable.Bytes32Deque;
 
@@ -21,10 +18,10 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     // greenfield system contracts
-    address public constant CROSS_CHAIN = 0x93Cf63F9Db8F2B6614Bf507eAaeb29c4D1EfA388;
-    address public constant GROUP_HUB = 0x28BCd1062dFc8fa6Ab3CA685C48A0e18ddBf1dBf;
-    address public constant GROUP_TOKEN = 0x57C6c4f66f2100EE57081773C07cFB189d94Fd82;
-    address public constant MEMBER_TOKEN = 0xBB58977ea8dbB359A7D93B11cbd2c6dbde4E531D;
+    address public constant _CROSS_CHAIN = 0xa5B2c9194131A4E0BFaCbF9E5D6722c873159cb7;
+    address public constant _GROUP_HUB = 0x50B3BF0d95a8dbA57B58C82dFDB5ff6747Cc1a9E;
+    address public constant _GROUP_TOKEN = 0x7fC61D6FCA8D6Ea811637bA58eaf6aB17d50c4d1;
+    address public constant _MEMBER_TOKEN = 0x43bdF3d63e6318A2831FE1116cBA69afd0F05267;
 
     /*----------------- storage -----------------*/
     // group ID => item price
@@ -79,7 +76,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     event Rate(address indexed buyer, uint256 indexed groupId, uint256 score);
 
     modifier onlyGroupOwner(uint256 groupId) {
-        require(msg.sender == IERC721NonTransferable(GROUP_TOKEN).ownerOf(groupId), "MarketPlace: only group owner");
+        require(msg.sender == IERC721NonTransferable(_GROUP_TOKEN).ownerOf(groupId), "MarketPlace: only group owner");
         _;
     }
 
@@ -97,8 +94,8 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         fundWallet = _fundWallet;
         feeRate = _feeRate;
 
-        __base_app_init_unchained(CROSS_CHAIN, _callbackGasLimit, _failureHandleStrategy);
-        __group_app_init_unchained(GROUP_HUB);
+        __base_app_init_unchained(_CROSS_CHAIN, _callbackGasLimit, _failureHandleStrategy);
+        __group_app_init_unchained(_GROUP_HUB);
 
         // init sales ranking
         _salesVolumeRanking = new uint256[](10);
@@ -117,7 +114,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
         uint256 resourceId,
         bytes calldata callbackData
     ) external override(GroupApp) {
-        require(msg.sender == GROUP_HUB, "MarketPlace: invalid caller");
+        require(msg.sender == _GROUP_HUB, "MarketPlace: invalid caller");
 
         if (resourceType == RESOURCE_GROUP) {
             _groupGreenfieldCall(status, operationType, resourceId, callbackData);
@@ -128,7 +125,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
 
     function list(uint256 groupId, uint256 price) external onlyGroupOwner(groupId) {
         // the owner need to approve the marketplace contract to update the group
-        require(IGroupHub(GROUP_HUB).hasRole(ROLE_UPDATE, msg.sender, address(this)), "Marketplace: no grant");
+        require(IGnfdAccessControl(_GROUP_HUB).hasRole(ROLE_UPDATE, msg.sender, address(this)), "Marketplace: no grant");
         require(prices[groupId] == 0, "Marketplace: already listed");
         require(price > 0, "Marketplace: invalid price");
 
@@ -255,6 +252,15 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     }
 
     /*----------------- view functions -----------------*/
+    function versionInfo()
+    external
+    pure
+    override
+    returns (uint256 version, string memory name, string memory description)
+    {
+        return (1, "MarketPlace", "support greenfield-contracts v0.0.9-alpha3");
+    }
+
     function getMinRelayFee() external returns (uint256 amount) {
         amount = _getTotalFee();
     }
@@ -487,18 +493,21 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     /*----------------- internal functions -----------------*/
     function _buy(uint256 groupId, address refundAddress, uint256 amount) internal {
         address buyer = msg.sender;
-        require(IERC1155NonTransferable(MEMBER_TOKEN).balanceOf(buyer, groupId) == 0, "MarketPlace: already purchased");
+        require(IERC1155NonTransferable(_MEMBER_TOKEN).balanceOf(buyer, groupId) == 0, "MarketPlace: already purchased");
 
-        address _owner = IERC721NonTransferable(GROUP_TOKEN).ownerOf(groupId);
+        address _owner = IERC721NonTransferable(_GROUP_TOKEN).ownerOf(groupId);
         address[] memory members = new address[](1);
+        uint64[] memory expirations = new uint64[](1);
         members[0] = buyer;
-        bytes memory callbackData = _encodeCallbackData(_owner, buyer, prices[groupId]);
+        expirations[0] = 0;
+        bytes memory callbackData = abi.encode(_owner, buyer, prices[groupId]);
         UpdateGroupSynPackage memory updatePkg = UpdateGroupSynPackage({
             operator: _owner,
             id: groupId,
             opType: UpdateGroupOpType.AddMembers,
             members: members,
-            extraData: ""
+            extraData: "",
+            memberExpiration: expirations
         });
         ExtraData memory _extraData = ExtraData({
             appAddress: address(this),
@@ -507,7 +516,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
             callbackData: callbackData
         });
 
-        IGroupHub(GROUP_HUB).updateGroup{value: amount}(updatePkg, callbackGasLimit, _extraData);
+        IGroupHub(_GROUP_HUB).updateGroup{value: amount}(updatePkg, callbackGasLimit, _extraData);
     }
 
     function _updateSales(uint256 groupId) internal {
@@ -596,10 +605,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
     }
 
     function _updateGroupCallback(uint32 _status, uint256 _tokenId, bytes memory _callbackData) internal override {
-        (address owner, address buyer, uint256 price, bool ok) = _decodeCallbackData(_callbackData);
-        if (!ok) {
-            revert("MarketPlace: invalid callback data");
-        }
+        (address owner, address buyer, uint256 price) = abi.decode(_callbackData, (address, address, uint256));
 
         if (_status == STATUS_SUCCESS) {
             uint256 feeRateAmount = (price * feeRate) / 10_000;
@@ -617,37 +623,6 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp, GroupStorage {
                 _unclaimedFunds[buyer] += price;
             }
             emit BuyFailed(buyer, _tokenId);
-        }
-    }
-
-    function _encodeCallbackData(address owner, address buyer, uint256 price) internal pure returns (bytes memory) {
-        bytes[] memory elements = new bytes[](3);
-        elements[0] = owner.encodeAddress();
-        elements[1] = buyer.encodeAddress();
-        elements[2] = price.encodeUint();
-        return elements.encodeList();
-    }
-
-    function _decodeCallbackData(bytes memory _callbackData)
-        internal
-        pure
-        returns (address owner, address buyer, uint256 price, bool success)
-    {
-        RLPDecode.Iterator memory iter = _callbackData.toRLPItem().iterator();
-
-        uint256 idx;
-        while (iter.hasNext()) {
-            if (idx == 0) {
-                owner = iter.next().toAddress();
-            } else if (idx == 1) {
-                buyer = iter.next().toAddress();
-            } else if (idx == 2) {
-                price = iter.next().toUint();
-                success = true;
-            } else {
-                break;
-            }
-            idx++;
         }
     }
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.7.0) (crosschain/polygon/CrossChainEnabledPolygonChild.sol)
+// OpenZeppelin Contracts (last updated v4.9.0) (crosschain/polygon/CrossChainEnabledPolygonChild.sol)
 
 pragma solidity ^0.8.4;
 
@@ -59,7 +59,7 @@ abstract contract CrossChainEnabledPolygonChild is IFxMessageProcessor, CrossCha
      * then security could be compromised.
      */
     function processMessageFromRoot(
-        uint256, /* stateId */
+        uint256 /* stateId */,
         address rootMessageSender,
         bytes calldata data
     ) external override nonReentrant {

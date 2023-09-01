@@ -16,6 +16,7 @@ contract RelayerHub is Config, ReentrancyGuardUpgradeable, IRelayerHub {
 
     /*----------------- event -----------------*/
     event RewardToRelayer(address relayer, uint256 amount);
+    event ClaimedReward(address relayer, uint256 amount);
 
     /*----------------- external function -----------------*/
     receive() external payable {
@@ -29,6 +30,7 @@ contract RelayerHub is Config, ReentrancyGuardUpgradeable, IRelayerHub {
     function addReward(address _relayer, uint256 _reward) external onlyCrossChain {
         uint256 actualAmount = ITokenHub(TOKEN_HUB).claimRelayFee(_reward);
         rewardMap[_relayer] += actualAmount;
+        emit RewardToRelayer(_relayer, actualAmount);
     }
 
     function claimReward(address payable _relayer) external nonReentrant {
@@ -38,8 +40,7 @@ contract RelayerHub is Config, ReentrancyGuardUpgradeable, IRelayerHub {
 
         require(address(this).balance >= _reward, "relayer reward not enough");
         _relayer.transfer(_reward);
-
-        emit RewardToRelayer(_relayer, _reward);
+        emit ClaimedReward(_relayer, _reward);
     }
 
     function versionInfo()

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.5.0) (token/ERC20/presets/ERC20PresetFixedSupply.sol)
+// OpenZeppelin Contracts (last updated v4.9.0) (token/ERC20/presets/ERC20PresetFixedSupply.sol)
 pragma solidity ^0.8.0;
 
 import "../extensions/ERC20Burnable.sol";
@@ -24,12 +24,7 @@ contract ERC20PresetFixedSupply is ERC20Burnable {
      *
      * See {ERC20-constructor}.
      */
-    constructor(
-        string memory name,
-        string memory symbol,
-        uint256 initialSupply,
-        address owner
-    ) ERC20(name, symbol) {
+    constructor(string memory name, string memory symbol, uint256 initialSupply, address owner) ERC20(name, symbol) {
         _mint(owner, initialSupply);
     }
 }

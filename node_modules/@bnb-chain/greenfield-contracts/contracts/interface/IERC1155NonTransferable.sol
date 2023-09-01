@@ -2,30 +2,14 @@
 
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+
 /**
  * @dev External interface of ERC1155NonTransferable declared to support ERC165 detection.
  *
- * This multi-token doesn't support token transfer or approval.
+ * This multi-token DOESN'T support token transfer or approval.
  */
-interface IERC1155NonTransferable {
-    event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value);
-    event TransferBatch(
-        address indexed operator,
-        address indexed from,
-        address indexed to,
-        uint256[] ids,
-        uint256[] values
-    );
-    event ApprovalForAll(address indexed account, address indexed operator, bool approved);
-    event URI(string value, uint256 indexed id);
-
-    function balanceOf(address account, uint256 id) external view returns (uint256);
-
-    function balanceOfBatch(
-        address[] calldata accounts,
-        uint256[] calldata ids
-    ) external view returns (uint256[] memory);
-
+interface IERC1155NonTransferable is IERC1155 {
     function baseURI() external view returns (string memory);
 
     function uri(uint256 id) external view returns (string memory);
