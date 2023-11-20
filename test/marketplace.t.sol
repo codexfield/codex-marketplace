@@ -30,7 +30,7 @@ contract MarketplaceTest is Test {
         owner = vm.addr(privateKey);
         console.log("owner: %s", owner);
 
-        proxyMarketplace = 0x8c7EB076946aa3f015d5825D72046354c84f777f; // get this from deploy script's log
+        proxyMarketplace = 0x077299B747Cb9da17AC6F7f2c509B9488d831564; // get this from deploy script's log
         crossChain = IMarketplace(proxyMarketplace)._CROSS_CHAIN();
         groupHub = IMarketplace(proxyMarketplace)._GROUP_HUB();
         groupToken = IMarketplace(proxyMarketplace)._GROUP_TOKEN();
@@ -93,7 +93,7 @@ contract MarketplaceTest is Test {
         // address _buyer = address(this);
 
         // failed with not listed group
-        vm.expectRevert("MarketPlace: not listed");
+        vm.expectRevert("MarketPlace: not listed for sale");
         IMarketplace(proxyMarketplace).buy(tokenId, address(this));
 
         vm.prank(groupHub);
@@ -113,6 +113,64 @@ contract MarketplaceTest is Test {
         vm.expectEmit(true, true, true, true, groupHub);
         emit UpdateSubmitted(_owner, proxyMarketplace, tokenId, 0, members);
         IMarketplace(proxyMarketplace).buy{value: 1e18 + relayFee}(tokenId, address(this));
+    }
+
+    function testStar(uint256 tokenId) public {
+        vm.assume(!IERC721NonTransferable(groupToken).exists(tokenId));
+
+        address _owner = address(0x1234);
+        address _buyer = address(this);
+
+        // failed with not listed group
+        vm.expectRevert("MarketPlace: not listed");
+        IMarketplace(proxyMarketplace).star(tokenId);
+
+        vm.prank(groupHub);
+        IERC721NonTransferable(groupToken).mint(_owner, tokenId);
+        vm.startPrank(_owner);
+        ICmnHub(groupHub).grant(proxyMarketplace, 4, 0);
+        IMarketplace(proxyMarketplace).list(tokenId, 1e18);
+        vm.stopPrank();
+
+        // success case
+        vm.startPrank(_buyer);
+        IMarketplace(proxyMarketplace).star(tokenId);
+        vm.stopPrank();
+
+        // failed with already stared
+        vm.expectRevert("MarketPlace: already stared");
+        vm.startPrank(_buyer);
+        IMarketplace(proxyMarketplace).star(tokenId);
+        vm.stopPrank();
+    }
+
+    function testSponsor(uint256 tokenId) public {
+        vm.assume(!IERC721NonTransferable(groupToken).exists(tokenId));
+
+        address _owner = address(0x1234);
+        address _buyer = address(this);
+
+        // failed with not listed group
+        vm.expectRevert("MarketPlace: not listed");
+        IMarketplace(proxyMarketplace).sponsor{value: 1 ether}(tokenId);
+
+        vm.prank(groupHub);
+        IERC721NonTransferable(groupToken).mint(_owner, tokenId);
+        vm.startPrank(_owner);
+        ICmnHub(groupHub).grant(proxyMarketplace, 4, 0);
+        IMarketplace(proxyMarketplace).list(tokenId, 1e18);
+        vm.stopPrank();
+
+        // success case
+        vm.startPrank(_buyer);
+        IMarketplace(proxyMarketplace).sponsor{value: 1 ether}(tokenId);
+        vm.stopPrank();
+
+        // failed with invalid amount
+        vm.expectRevert("MarketPlace: invalid amount");
+        vm.startPrank(_buyer);
+        IMarketplace(proxyMarketplace).sponsor(tokenId);
+        vm.stopPrank();
     }
 
     function _getTotalFee() internal returns (uint256) {

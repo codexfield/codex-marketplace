@@ -24,7 +24,7 @@ cp .env.example .env
 
 ```bash
 source .env
-forge script ./script/1-deploy.s.sol --rpc-url ${RPC_TESTNET} --legacy --broadcast --private-key ${OP_PRIVATE_KEY}
+forge script ./script/1-deploy.s.sol --rpc-url ${RPC_TESTNET} --legacy --broadcast --private-key ${OP_PRIVATE_KEY} --via-ir
 ```
 
 ## Test

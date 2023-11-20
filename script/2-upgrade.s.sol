@@ -47,6 +47,6 @@ contract UpgradeScript is Script {
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(proxyMarketPlace), address(newImpl));
         vm.stopBroadcast();
 
-        //console.log("new implMarketPlace address: %s", newImpl);
+        console.log("new implMarketPlace address: %s", address(newImpl));
     }
 }

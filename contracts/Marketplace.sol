@@ -26,12 +26,16 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     /*----------------- storage -----------------*/
     // group ID => item price
     mapping(uint256 => uint256) public prices;
+    // group ID => listed date
+    mapping(uint256 => uint256) public listedDate;
     // group ID => total sales volume
     mapping(uint256 => uint256) public salesVolume;
     // group ID => total sales revenue
     mapping(uint256 => uint256) public salesRevenue;
-    // group ID => listed date
-    mapping(uint256 => uint256) public listedDate;
+    // group ID => total stars
+    mapping(uint256 => uint256) public stars;
+    // group ID => total sponsor revenue
+    mapping(uint256 => uint256) public sponsorRevenue;
     // group ID => scores 0~127: average score 128~255: score counts
     mapping(uint256 => uint256) public scores;
 
@@ -51,15 +55,24 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     // group ID corresponding to the sales revenue ranking list, ordered by sales revenue(desc)
     uint256[] private _salesRevenueRankingId;
 
-    // score ranking list, ordered by average score(desc)
-    uint256[] private _scoreRanking;
-    // group ID corresponding to the score ranking list, ordered by average score(desc)
-    uint256[] private _scoreRankingId;
+    // stars ranking list, ordered by stars number(desc)
+    uint256[] private _starsRanking;
+    // group ID corresponding to the stars ranking list, ordered by stars number(desc)
+    uint256[] private _starsRankingId;
+
+    // sponsor revenue ranking list, ordered by sponsor revenue(desc)
+    uint256[] private _sponsorRevenueRanking;
+    // group ID corresponding to the sponsor revenue ranking list, ordered by sponsor revenue(desc)
+    uint256[] private _sponsorRevenueRankingId;
 
     // user address => user listed group IDs, ordered by listed time
     mapping(address => EnumerableSetUpgradeable.UintSet) private _userListedGroups;
     // user address => user purchased group IDs, ordered by purchased time
     mapping(address => EnumerableSetUpgradeable.UintSet) private _userPurchasedGroups;
+    // user address => user stared group IDs, ordered by star time
+    mapping(address => EnumerableSetUpgradeable.UintSet) private _userStaredGroups;
+    // user address => user sponsored group IDs, ordered by sponsor time
+    mapping(address => EnumerableSetUpgradeable.UintSet) private _userSponsoredGroups;
     // user address => user rated group IDs, ordered by rated time
     mapping(address => EnumerableSetUpgradeable.UintSet) private _userRatedGroups;
 
@@ -73,6 +86,9 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     event Delist(address indexed owner, uint256 indexed groupId);
     event Buy(address indexed buyer, uint256 indexed groupId);
     event BuyFailed(address indexed buyer, uint256 indexed groupId);
+    event PriceUpdated(address indexed owner, uint256 indexed groupId, uint256 price);
+    event Star(address indexed user, uint256 indexed groupId);
+    event Sponsor(address indexed sponsor, uint256 indexed groupId, uint256 amount);
     event Rate(address indexed buyer, uint256 indexed groupId, uint256 score);
 
     modifier onlyGroupOwner(uint256 groupId) {
@@ -97,13 +113,15 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         __base_app_init_unchained(_CROSS_CHAIN, _callbackGasLimit, _failureHandleStrategy);
         __group_app_init_unchained(_GROUP_HUB);
 
-        // init sales ranking
+        // init ranking arrays
         _salesVolumeRanking = new uint256[](10);
         _salesVolumeRankingId = new uint256[](10);
         _salesRevenueRanking = new uint256[](10);
         _salesRevenueRankingId = new uint256[](10);
-        _scoreRanking = new uint256[](10);
-        _scoreRankingId = new uint256[](10);
+        _starsRanking = new uint256[](10);
+        _starsRankingId = new uint256[](10);
+        _sponsorRevenueRanking = new uint256[](10);
+        _sponsorRevenueRankingId = new uint256[](10);
     }
 
     /*----------------- external functions -----------------*/
@@ -126,8 +144,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     function list(uint256 groupId, uint256 price) external onlyGroupOwner(groupId) {
         // the owner need to approve the marketplace contract to update the group
         require(IGnfdAccessControl(_GROUP_HUB).hasRole(ROLE_UPDATE, msg.sender, address(this)), "Marketplace: no grant");
-        require(prices[groupId] == 0, "Marketplace: already listed");
-        require(price > 0, "Marketplace: invalid price");
+        require(!_listedGroups.contains(groupId), "Marketplace: already listed");
 
         prices[groupId] = price;
         listedDate[groupId] = block.timestamp;
@@ -138,20 +155,16 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
     }
 
     function setPrice(uint256 groupId, uint256 newPrice) external onlyGroupOwner(groupId) {
-        require(prices[groupId] > 0, "MarketPlace: not listed");
-        require(newPrice > 0, "MarketPlace: invalid price");
-
+        require(_listedGroups.contains(groupId), "MarketPlace: not listed");
         prices[groupId] = newPrice;
+        emit PriceUpdated(msg.sender, groupId, newPrice);
     }
 
     function delist(uint256 groupId) external onlyGroupOwner(groupId) {
-        require(prices[groupId] > 0, "MarketPlace: not listed");
+        require(_listedGroups.contains(groupId), "MarketPlace: not listed");
 
         delete prices[groupId];
         delete listedDate[groupId];
-        delete salesVolume[groupId];
-        delete salesRevenue[groupId];
-        delete scores[groupId];
         _listedGroups.remove(groupId);
         _userListedGroups[msg.sender].remove(groupId);
 
@@ -179,14 +192,26 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
             }
         }
 
-        for (uint256 i; i < _scoreRankingId.length; ++i) {
-            if (_scoreRankingId[i] == groupId) {
-                for (uint256 j = i; j < _scoreRankingId.length - 1; ++j) {
-                    _scoreRankingId[j] = _scoreRankingId[j + 1];
-                    _scoreRanking[j] = _scoreRanking[j + 1];
+        for (uint256 i; i < _starsRankingId.length; ++i) {
+            if (_starsRankingId[i] == groupId) {
+                for (uint256 j = i; j < _starsRankingId.length - 1; ++j) {
+                    _starsRankingId[j] = _starsRankingId[j + 1];
+                    _starsRanking[j] = _starsRanking[j + 1];
                 }
-                _scoreRankingId[_scoreRankingId.length - 1] = 0;
-                _scoreRanking[_scoreRankingId.length - 1] = 0;
+                _starsRankingId[_starsRankingId.length - 1] = 0;
+                _starsRanking[_starsRankingId.length - 1] = 0;
+                break;
+            }
+        }
+
+        for (uint256 i; i < _sponsorRevenueRankingId.length; ++i) {
+            if (_sponsorRevenueRankingId[i] == groupId) {
+                for (uint256 j = i; j < _sponsorRevenueRankingId.length - 1; ++j) {
+                    _sponsorRevenueRankingId[j] = _sponsorRevenueRankingId[j + 1];
+                    _sponsorRevenueRanking[j] = _sponsorRevenueRanking[j + 1];
+                }
+                _sponsorRevenueRankingId[_sponsorRevenueRankingId.length - 1] = 0;
+                _sponsorRevenueRanking[_sponsorRevenueRankingId.length - 1] = 0;
                 break;
             }
         }
@@ -196,7 +221,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
 
     function buy(uint256 groupId, address refundAddress) external payable {
         uint256 price = prices[groupId];
-        require(price > 0, "MarketPlace: not listed");
+        require(price > 0, "MarketPlace: not listed for sale");
         require(!_userPurchasedGroups[msg.sender].contains(groupId), "MarketPlace: already purchased");
         require(msg.value >= prices[groupId] + _getTotalFee(), "MarketPlace: insufficient fund");
 
@@ -208,7 +233,7 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         uint256 relayFee = _getTotalFee();
         uint256 amount;
         for (uint256 i; i < groupIds.length; ++i) {
-            require(prices[groupIds[i]] > 0, "MarketPlace: not listed");
+            require(prices[groupIds[i]] > 0, "MarketPlace: not listed for sale");
             require(!_userPurchasedGroups[msg.sender].contains(groupIds[i]), "MarketPlace: already purchased");
 
             amount = prices[groupIds[i]] + relayFee;
@@ -233,6 +258,26 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         require(success, "MarketPlace: claim failed");
     }
 
+    function star(uint256 groupId) external {
+        require(_listedGroups.contains(groupId), "MarketPlace: not listed");
+        require(!_userStaredGroups[msg.sender].contains(groupId), "MarketPlace: already stared");
+
+        _updateStars(groupId);
+
+        _userStaredGroups[msg.sender].add(groupId);
+        emit Star(msg.sender, groupId);
+    }
+
+    function sponsor(uint256 groupId) external payable {
+        require(_listedGroups.contains(groupId), "MarketPlace: not listed");
+        require(msg.value > 0, "MarketPlace: invalid amount");
+
+        _updateSponsorRevenue(groupId, msg.value);
+
+        _userSponsoredGroups[msg.sender].add(groupId);
+        emit Sponsor(msg.sender, groupId, msg.value);
+    }
+
     function rate(uint256 groupId, uint256 score) external {
         require(_userPurchasedGroups[msg.sender].contains(groupId), "MarketPlace: not purchased");
         require(!_userRatedGroups[msg.sender].contains(groupId), "MarketPlace: already rated");
@@ -246,8 +291,6 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         scores[groupId] = (_count << 128) + _score;
 
         _userRatedGroups[msg.sender].add(groupId);
-        _updateScores(groupId);
-
         emit Rate(msg.sender, groupId, score);
     }
 
@@ -297,13 +340,27 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         }
     }
 
-    function getScoreRanking()
-        external
-        view
-        returns (uint256[] memory _ids, uint256[] memory _scores, uint256[] memory _dates)
+    function getStarsRanking()
+    external
+    view
+    returns (uint256[] memory _ids, uint256[] memory _stars, uint256[] memory _dates)
     {
-        _ids = _scoreRankingId;
-        _scores = _scoreRanking;
+        _ids = _starsRankingId;
+        _stars = _starsRanking;
+
+        _dates = new uint256[](_ids.length);
+        for (uint256 i; i < _ids.length; ++i) {
+            _dates[i] = listedDate[_ids[i]];
+        }
+    }
+
+    function getSponsorRevenueRanking()
+    external
+    view
+    returns (uint256[] memory _ids, uint256[] memory _revenues, uint256[] memory _dates)
+    {
+        _ids = _sponsorRevenueRankingId;
+        _revenues = _sponsorRevenueRanking;
 
         _dates = new uint256[](_ids.length);
         for (uint256 i; i < _ids.length; ++i) {
@@ -386,6 +443,59 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         }
     }
 
+    function getStars(
+        uint256 offset,
+        uint256 limit
+    )
+    external
+    view
+    returns (uint256[] memory _ids, uint256[] memory _stars, uint256[] memory _dates, uint256 _totalLength) {
+        _totalLength = _listedGroups.length();
+        if (offset >= _totalLength) {
+            return (_ids, _stars, _dates, _totalLength);
+        }
+
+        uint256 count = _totalLength - offset;
+        if (count > limit) {
+            count = limit;
+        }
+        _ids = new uint256[](count);
+        _stars = new uint256[](count);
+        _dates = new uint256[](count);
+        for (uint256 i; i < count; ++i) {
+            _ids[i] = _listedGroups.at(offset + i);
+            _stars[i] = stars[_ids[i]];
+            _dates[i] = listedDate[_ids[i]];
+        }
+    }
+
+    function getSponsorRevenue(
+        uint256 offset,
+        uint256 limit
+    )
+    external
+    view
+    returns (uint256[] memory _ids, uint256[] memory _revenues, uint256[] memory _dates, uint256 _totalLength) {
+        _totalLength = _listedGroups.length();
+        if (offset >= _totalLength) {
+            return (_ids, _revenues, _dates, _totalLength);
+        }
+
+        uint256 count = _totalLength - offset;
+        if (count > limit) {
+            count = limit;
+        }
+        _ids = new uint256[](count);
+        _revenues = new uint256[](count);
+        _dates = new uint256[](count);
+        for (uint256 i; i < count; ++i) {
+            _ids[i] = _listedGroups.at(offset + i);
+            _revenues[i] = sponsorRevenue[_ids[i]];
+            _dates[i] = listedDate[_ids[i]];
+        }
+    }
+
+
     function getUserPurchased(
         address user,
         uint256 offset,
@@ -426,6 +536,50 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         _dates = new uint256[](count);
         for (uint256 i; i < count; ++i) {
             _ids[i] = _userListedGroups[user].at(offset + i);
+            _dates[i] = listedDate[_ids[i]];
+        }
+    }
+
+    function getUserStared(
+        address user,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength) {
+        _totalLength = _userStaredGroups[user].length();
+        if (offset >= _totalLength) {
+            return (_ids, _dates, _totalLength);
+        }
+
+        uint256 count = _totalLength - offset;
+        if (count > limit) {
+            count = limit;
+        }
+        _ids = new uint256[](count);
+        _dates = new uint256[](count);
+        for (uint256 i; i < count; ++i) {
+            _ids[i] = _userStaredGroups[user].at(offset + i);
+            _dates[i] = listedDate[_ids[i]];
+        }
+    }
+
+    function getUserSponsored(
+        address user,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength) {
+        _totalLength = _userSponsoredGroups[user].length();
+        if (offset >= _totalLength) {
+            return (_ids, _dates, _totalLength);
+        }
+
+        uint256 count = _totalLength - offset;
+        if (count > limit) {
+            count = limit;
+        }
+        _ids = new uint256[](count);
+        _dates = new uint256[](count);
+        for (uint256 i; i < count; ++i) {
+            _ids[i] = _userSponsoredGroups[user].at(offset + i);
             _dates[i] = listedDate[_ids[i]];
         }
     }
@@ -568,24 +722,47 @@ contract Marketplace is ReentrancyGuard, AccessControl, GroupApp {
         }
     }
 
-    function _updateScores(uint256 groupId) internal {
-        uint256 _score = scores[groupId] & 0xffffffffffffffffffffffffffffffff;
-
-        for (uint256 i; i < _scoreRanking.length; ++i) {
-            if (_score > _scoreRanking[i]) {
-                uint256 endIdx = _scoreRanking.length - 1;
-                for (uint256 j = i; j < _scoreRanking.length; ++j) {
-                    if (_scoreRankingId[j] == groupId) {
+    function _updateStars(uint256 groupId) internal {
+        stars[groupId] += 1;
+        uint256 _stars = stars[groupId];
+        for (uint256 i; i < _starsRanking.length; ++i) {
+            if (_stars > _starsRanking[i]) {
+                uint256 endIdx = _starsRanking.length - 1;
+                for (uint256 j = i; j < _starsRanking.length; ++j) {
+                    if (_starsRankingId[j] == groupId) {
                         endIdx = j;
                         break;
                     }
                 }
                 for (uint256 k = endIdx; k > i; --k) {
-                    _scoreRanking[k] = _scoreRanking[k - 1];
-                    _scoreRankingId[k] = _scoreRankingId[k - 1];
+                    _starsRanking[k] = _starsRanking[k - 1];
+                    _starsRankingId[k] = _starsRankingId[k - 1];
                 }
-                _scoreRanking[i] = _score;
-                _scoreRankingId[i] = groupId;
+                _starsRanking[i] = _stars;
+                _starsRankingId[i] = groupId;
+                break;
+            }
+        }
+    }
+
+    function _updateSponsorRevenue(uint256 groupId, uint256 amount) internal {
+        sponsorRevenue[groupId] += amount;
+        uint256 _revenue = sponsorRevenue[groupId];
+        for (uint256 i; i < _sponsorRevenueRanking.length; ++i) {
+            if (_revenue > _sponsorRevenueRanking[i]) {
+                uint256 endIdx = _sponsorRevenueRanking.length - 1;
+                for (uint256 j = i; j < _sponsorRevenueRanking.length; ++j) {
+                    if (_sponsorRevenueRankingId[j] == groupId) {
+                        endIdx = j;
+                        break;
+                    }
+                }
+                for (uint256 k = endIdx; k > i; --k) {
+                    _sponsorRevenueRanking[k] = _sponsorRevenueRanking[k - 1];
+                    _sponsorRevenueRankingId[k] = _sponsorRevenueRankingId[k - 1];
+                }
+                _sponsorRevenueRanking[i] = _revenue;
+                _sponsorRevenueRankingId[i] = groupId;
                 break;
             }
         }

@@ -32,6 +32,10 @@ interface IMarketplace {
     event UpdateGroupSuccess(uint256 indexed tokenId);
     event UpdateSubmitted(address owner, address operator, uint256 id, uint8 opType, address[] members);
     event UpdateSuccess(address indexed operator, uint256 indexed id, uint8 opType);
+    event PriceUpdated(address indexed owner, uint256 indexed groupId, uint256 price);
+    event Star(address indexed user, uint256 indexed groupId);
+    event Sponsor(address indexed sponsor, uint256 indexed groupId, uint256 amount);
+    event Rate(address indexed buyer, uint256 indexed groupId, uint256 score);
 
     function AUTH_CODE_CREATE() external view returns (uint32);
     function AUTH_CODE_DELETE() external view returns (uint32);
@@ -84,6 +88,9 @@ interface IMarketplace {
     function additional() external view returns (address);
     function buy(uint256 groupId, address refundAddress) external payable;
     function buyBatch(uint256[] memory groupIds, address refundAddress) external payable;
+    function star(uint256 groupId) external;
+    function sponsor(uint256 groupId) external payable;
+    function rate(uint256 groupId, uint256 score) external;
     function callbackGasLimit() external view returns (uint256);
     function channelId() external view returns (uint8);
     function claim() external;
@@ -120,10 +127,28 @@ interface IMarketplace {
         external
         view
         returns (uint256[] memory _ids, uint256[] memory _volumes, uint256[] memory _dates);
-    function getScoreRanking()
+    function getStars(
+        uint256 offset,
+        uint256 limit
+    )
+    external
+    view
+    returns (uint256[] memory _ids, uint256[] memory _stars, uint256[] memory _dates, uint256 _totalLength);
+    function getStarsRanking()
         external
         view
-        returns (uint256[] memory _ids, uint256[] memory _scores, uint256[] memory _dates);
+        returns (uint256[] memory _ids, uint256[] memory _stars, uint256[] memory _dates);
+    function getSponsorRevenue(
+        uint256 offset,
+        uint256 limit
+    )
+    external
+    view
+    returns (uint256[] memory _ids, uint256[] memory _revenues, uint256[] memory _dates, uint256 _totalLength);
+    function getSponsorRevenueRanking()
+        external
+        view
+        returns (uint256[] memory _ids, uint256[] memory _revenues, uint256[] memory _dates);
     function getUnclaimedAmount() external view returns (uint256 amount);
     function getUserListed(
         address user,
@@ -131,6 +156,16 @@ interface IMarketplace {
         uint256 limit
     ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength);
     function getUserPurchased(
+        address user,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength);
+    function getUserStared(
+        address user,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory _ids, uint256[] memory _dates, uint256 _totalLength);
+    function getUserSponsored(
         address user,
         uint256 offset,
         uint256 limit
@@ -180,6 +215,8 @@ interface IMarketplace {
     function revokeRole(bytes32 role, address account) external;
     function salesRevenue(uint256) external view returns (uint256);
     function salesVolume(uint256) external view returns (uint256);
+    function stars(uint256) external view returns (uint256);
+    function sponsorRevenue(uint256) external view returns (uint256);
     function setCallbackGasLimit(uint256 _callbackGasLimit) external;
     function setFailureHandleStrategy(uint8 _failureHandleStrategy) external;
     function setFeeRate(uint256 _feeRate) external;
